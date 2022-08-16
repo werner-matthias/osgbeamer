@@ -1,0 +1,16 @@
+\NeedsTeXFormat{LaTeX2e}
+\def\packagename{osgifjob}
+\ProvidesPackage{\packagename}[2016/08/10]
+\def\substr#1#2#3#4{
+  \edef\x{\noexpand\in@{#1}{#2}}\x
+\ifin@
+#3
+\else
+#4
+\fi  
+}
+\gdef\ifstrinjob#1#2#3{
+  \edef\teststring{#1}%
+  \@onelevel@sanitize\teststring%
+  \substr{\teststring}{\jobname}{#2}{#3}
+}

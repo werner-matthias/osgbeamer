@@ -1,0 +1,173 @@
+\NeedsTeXFormat{LaTeX2e}
+\def\packagename{osgbeamerlanguage}
+\ProvidesPackage{\packagename}[2016/08/09]
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Ermittle die Sprache, falls sie nicht durch Option gegeben ist.
+%%% Laut Konvention sind die Jobnamen nach dem Schema <typ>_<lang> gebildet,
+%%% z.B. slides_de
+\RequirePackage{osgifjob}
+\ifcsundef{selectedbeamerlanguage}{
+  \ifstrinjob{_en}{%
+    \providecommand\selectedbeamerlanguage{english}%
+  }{%
+    \providecommand\selectedbeamerlanguage{deutsch}%
+  }%
+}{}
+\RequirePackage{ifluatex}
+\ifluatex
+\RequirePackage[babelshorthands]{polyglossia}
+\ifstrequal{\selectedbeamerlanguage}{deutsch}{%
+  \setmainlanguage{german}
+  \setotherlanguage{english}
+  \setotherlanguage{greek}
+}{
+  \setmainlanguage{english}
+  \setotherlanguage{german}
+  \setotherlanguage{greek}
+}
+\else %% Babel
+\RequirePackage[ngerman,english]{babel}
+\RequirePackage[utf8]{inputenc}
+\babeltags{german=ngerman,english=english}
+\ifcsstring{selectedbeamerlanguage}{deutsch}{%
+  \AtBeginDocument{
+    \selectlanguage{ngerman}
+    }
+}{
+  \AtBeginDocument{
+    \selectlanguage{english}
+  }
+}
+\fi
+\newcommand{\eng}[1]{\textenglish{\emph{#1}}}
+\newcommand{\germ}[1]{\textgerman{\emph{#1}}}
+%%% Ordinalzahlen
+\RequirePackage[super]{nth}
+\let\ordinalen=\ordinal
+\newcommand{\ordinalde}[1]{\arabic{#1}.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+%%% Zähler und Schalter für Sprachen
+% Ein Zähler lastlang<lang><name> dienen dazu, den Zählerstand <name> in der
+% Sprache <lang> zwischenzuspeichern, um diese anschließend wieder zurückzusetzen. 
+\newcounter{langlastdeframe}
+\newcounter{langlastenframe}
+\newcounter{langlastdetheorem}
+\newcounter{langlastentheorem}
+\newcounter{langlastdeeq}
+\newcounter{langlasteneq}
+\newif\iflangineng\langinengfalse
+\newif\iflanginde\langindefalse
+%%
+%% Sprachversionen
+%%
+\gdef\langall{\beamer@inlecturetrue%
+    \iflangineng%
+    \setcounter{framenumber}{\value{langlastdeframe}}%
+    \setcounter{theorem}{\value{langlastdetheorem}}%
+    \setcounter{equation}{\value{langlastdeeq}}%
+    \else
+    \setcounter{framenumber}{\value{langlastenframe}}%
+    \setcounter{theorem}{\value{langlastentheorem}}%
+    \setcounter{equation}{\value{langlasteneq}}%
+    \fi%
+  }
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Sprachversionen  
+\ifcsstring{selectedbeamerlanguage}{deutsch}
+{%%% Deutsch
+  \let\ordinal=\ordinalde
+  \newcommand{\len}[1]{}
+  \newcommand{\lde}[1]{#1}
+  \newenvironment{en}{\begin{onlyenv}<article:0|presentation:0>}{\end{onlyenv}}
+  \newenvironment{de}{}{}
+  \gdef\langen{%
+    \beamer@inlecturefalse%
+    \iflangineng%
+    \else%
+    \setcounter{langlastdeframe}{\value{framenumber}}%
+    \setcounter{langlastdetheorem}{\value{theorem}}%
+    \setcounter{langlastdeeq}{\value{equation}}%
+    \fi%
+    \langinengtrue%
+    \langindefalse%
+  }
+  \gdef\langde{%
+    \beamer@inlecturetrue%
+    \iflangineng%
+    \setcounter{framenumber}{\value{langlastdeframe}}%
+    \setcounter{theorem}{\value{langlastdetheorem}}%
+    \setcounter{equation}{\value{langlastdeeq}}%
+    \fi%
+    \langindetrue%
+    \langinengfalse%
+  }
+  %\newrobustcmd{\ldeen}[2]{\ifx\empty#1\empty{#2}\else{#1}\fi}
+  \newrobustcmd{\ldeen}[2]{\ifstrequal{#1}{}{#2}{#1}}
+  \newcommand{\ldeenr}[2]{#1} % robust version
+  \newcommand<>{\lframetitle}[2]{\frametitle#3{#1}}
+  \gdef\langall{\beamer@inlecturetrue%
+    \iflangineng%
+    \setcounter{framenumber}{\value{langlastdeframe}}%
+    \setcounter{theorem}{\value{langlastdetheorem}}%
+    \setcounter{equation}{\value{langlastdeeq}}%
+    \fi%
+    \langindefalse%
+    \langinengfalse%
+  }
+  \selectlanguage{ngerman}
+  \useshorthands{"}
+}%
+{%%%% sonst: Englisch
+  \let\ordinal=\ordinalen
+  \newcommand{\len}[1]{#1}
+  \newcommand{\lde}[1]{}
+  \newenvironment{de}{\begin{onlyenv}<article:0|presentation:0>}{\end{onlyenv}}
+  \newenvironment{en}{}{}
+  \gdef\langde{%
+    \beamer@inlecturefalse%
+    \iflanginde%
+    \else%
+    \setcounter{langlastenframe}{\value{framenumber}}%
+    \setcounter{langlastentheorem}{\value{theorem}}%
+    \setcounter{langlasteneq}{\value{equation}}%
+    \fi%
+    \langindetrue%
+    \langinengfalse%
+  }
+  \gdef\langen{%
+    \beamer@inlecturetrue%
+    \iflanginde%
+    \setcounter{framenumber}{\value{langlastenframe}}%
+    \setcounter{theorem}{\value{langlastentheorem}}%
+    \setcounter{equation}{\value{langlasteneq}}%
+    \fi%
+    \langinengtrue%
+    \langindefalse%
+  }
+  %\newrobustcmd{\ldeen}[2]{\ifx\empty#2\empty{#1}\else{#2}\fi}
+  \newrobustcmd{\ldeen}[2]{\ifstrequal{#2}{}{#1}{#2}}
+  \newcommand{\ldeenr}[2]{#2} % robust version
+  \newcommand<>{\lframetitle}[2]{\ifx\empty#2\empty\frametitle#3{#1}\else\frametitle#3{#2}\fi}
+  \gdef\langall{\beamer@inlecturetrue%
+    \iflanginde%
+    \setcounter{framenumber}{\value{langlastenframe}}%
+    \setcounter{theorem}{\value{langlastentheorem}}%
+    \setcounter{equation}{\value{langlasteneq}}%
+    \fi%
+    \langindefalse%
+    \langinengfalse%
+  }
+  \selectlanguage{english}
+}
+\RequirePackage[german=quotes,english=american,autostyle=true]{csquotes}
+\useshorthands*{"}
+\defineshorthand{"`}{\openautoquote}
+\defineshorthand{"'}{\closeautoquote}
+\addto\extrasenglish{\languageshorthands{ngerman}}
+\newcommand{\llecture}[3]{\lecture{\lde{#1}\len{#2}}{#3}}
+
+
+\AtBeginDocument{
+  \setbeamertemplate{frametitle continuation}{(\ldeen{Forts.}{cont.})}
+}
