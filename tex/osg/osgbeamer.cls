@@ -29,7 +29,7 @@
 % 2022-03-04 M. Werner: In standalone: \thesection mit folgendem Punkt
 \NeedsTeXFormat{LaTeX2e}
 \def\classname{osgbeamer}
-\ProvidesClass{\classname}[2021/09/16]
+\ProvidesClass{\classname}[2022/08/17 v0.9.0]
 \RequirePackage{etoolbox}
 \RequirePackage{xkeyval}
 \RequirePackage{osgifjob}
@@ -42,6 +42,10 @@
 % Welches Ausgabeformat erzeugt wird, kann entweder durch die Option
 % 'type=[slides|handout|screen|script]' gewählt wird, oder indem der
 % Jobname den Typ enthält (z.B. durch -jobname=handout_de)
+% default: 
+  \gdef\selectedbeamertype{beamer}
+  \gdef\osgparentclass{beamer}
+
 \newcommand{\osgoptiontypehandout}{
   \PassOptionsToClass{handout}{beamer}
   \gdef\selectedbeamertype{handout}
