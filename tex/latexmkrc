@@ -1,0 +1,226 @@
+#################################################
+# REMARK:
+# This is my first piece of Perl code I've
+# ever written. 
+# Thus, it probably is in a bad style and it is 
+# quite unelegant.
+# However, it seems to work.
+#################################################
+
+use strict;
+use 5.30.3;
+use warnings;
+use feature 'signatures','lexical_subs','switch';
+no warnings 'experimental::signatures','experimental::smartmatch';
+
+use Cwd qw(cwd getcwd);
+use File::Basename;
+use List::MoreUtils qw(firstidx);
+our (@default_files, $pdf_mode, $pdflatex, $biber, $jobname, $pre_tex_code, $clean_ext, $compiling_cmd);
+sub is_olmtree;
+sub doc_dirs;
+sub current_number;
+
+#####################################
+# Defaults                          #
+#####################################
+our $doctype="slides";
+our $lang="de";
+our $lectureprefix="foo";
+our @languages=('de');
+
+#package olm;
+
+sub is_olmtree {
+    # is_olmtree()
+    #
+    # Returns true (1) if the current directory has the form
+    # of a lecture-topic directury, else false (0)
+    my $dir = basename(getcwd());
+    if ($dir =~ /^[0-9][0-9][0-9][as]?-.*/) {1} else {0}
+}
+
+sub doc_dirs ($type) {
+    # doc_dirs(type)
+    #
+    # type: string (slides|script|article|lang)
+    #
+    # Returns all topic directories of the given type, that
+    # are neighbors of the currenct one, in order.
+    if (!is_olmtree()) {
+	my @empty = ();
+	return @empty;
+    }
+    my @dirs=glob ('../[0-9][0-9][0-9]-*');              # common directories
+    if ($type eq 'slides'){                              # type-specific directories
+	@dirs= (@dirs,glob ( '../[0-9][0-9][0-9]s-*'));
+    }
+    elsif (($type eq 'script') or ($type eq 'article')) {
+	@dirs= (@dirs,glob ( '../[0-9][0-9][0-9]a-*'));
+    }
+    foreach my $d ( @dirs ) {                            # cut prefix path
+	$d = basename($d);
+    }
+    sort @dirs;
+}
+
+sub current_number ($type) {
+    # current_number(type)
+    #
+    # type: string (slides|script|article)
+    #
+    # Returns the sequence number (index) of the current
+    # topic directory. The first index is 0.
+    if (!is_olmtree()) {
+	my $empty = undef;
+	return $empty;
+    } 
+    my $topic_dir = basename(getcwd());
+    my @all_dirs = doc_dirs($type);
+    my $index = firstidx { /$topic_dir/ } @all_dirs; 
+    return $index;
+}
+
+sub process_options (@options) {
+    foreach (@options) {
+	given($_){
+	    when($_ eq 'slides') { $doctype = 'slides'; }
+	    when($_ eq 'script') { $doctype = 'script'; }
+	    when($_ eq 'article') { $doctype = 'script'; }
+	    when($_ eq 'handout') { $doctype = 'handout'; }
+	    when($_ eq 'standalone') { $doctype = 'standalone'; }
+	    when($_ eq 'lang=de') { $lang = 'de'; }
+	    when($_ eq 'lang=en') { $lang = 'en'; }
+	}
+    }
+    if ((!is_olmtree()) and ($doctype ne 'standalone')) {
+	die' No proper directory structure. Try \'standalone\'';
+    }
+    if (($doctype ne 'standalone') && ( -e '../config.pl')) {
+	print "\nLoad config\n";
+	#eval `cat ../config.pl`;
+	do '../config.pl'
+
+    }
+}
+#####################################
+# Doctype and Language              #
+#####################################
+@default_files=("main.tex");
+
+# Script options that can be used by OLM.
+# All other will be passed to latexmk.
+my $commandregex = qr/slides|script|handout|standalone|debug|verbose|lang/;
+$,= ' ';
+
+print "\n ARGS=";
+print @ARGV;
+
+my @olmOptions = grep (/$commandregex/, @ARGV);
+@ARGV =  grep (!/$commandregex/, @ARGV);
+
+process_options(@olmOptions);
+
+print doc_dirs('slides');
+
+print "\n\n OLM = ";
+print is_olmtree();
+print "\n\n";
+print "\n basename=";
+print basename(getcwd());
+print "\n\n";
+print "\n current_number=";
+print current_number('slides');    
+print "\n\n";
+print "\n ARGV=";
+print @ARGV;
+print "\n Opts=";
+print @olmOptions;   
+print "\n";
+print "lectureprefix=\"$lectureprefix\"\n";
+
+exit 0;
+ensure_path( 'TEXINPUTS', '../../../Common/TeX//');
+ensure_path( 'TEXINPUTS', '../Include//');
+
+
+
+
+
+
+$pdf_mode=1;
+$pdflatex = 'internal mylatex -shell-escape -file-line-error -synctex=1 %O %S'; 
+
+sub mylatex {
+my @args = @_;
+# Possible preprocessing here
+return system 'pdflatex', @args;
+}
+
+
+
+#$pdflatex="pdflatex -shell-escape -file-line-error -synctex=1 %O %P";
+sub slides {
+    $doctype="slides";
+    $jobname=$doctype."_".$lang;
+}
+
+sub script {
+    $doctype="script";
+    $jobname=$doctype."_".$lang;
+}
+
+sub de {
+    $lang="de";
+    $jobname=$doctype."_".$lang;
+}
+
+sub en {
+    $lang="en";
+    $jobname=$doctype."_".$lang;
+}
+
+#####################################
+# Dependencies                      #
+#####################################
+sub aspect{
+    &alt_tex_cmds;
+    $pre_tex_code=qq(\\gdef\\osgforceaspectratio{$_[0]});
+    print "\n########################\n";
+    print $pre_tex_code;
+    print "\n########################\n";
+}
+
+$biber = "biber %O %S; biber --output-format=bibtex -O  %B.tin  %B.bcf";
+
+add_cus_dep('eps','pdf',0,'eps2pdf');
+sub eps2pdf{
+    system("epspdf \"$_[0].eps\"" );
+}
+add_cus_dep('jpg','pdf',0,'jpg2pdf');
+sub jpg2pdf{
+    system("convert \"$_[0].jpg\" \"$_[0].pdf\"" );
+}
+
+add_cus_dep('jpeg','pdf',0,'jpeg2pdf');
+sub jpeg2pdf{
+    system("convert \"$_[0].jpeg\" \"$_[0].pdf\"" );
+}
+
+add_cus_dep('gif','pdf',0,'gif2pdf');
+sub gif2pdf{
+    system("convert \"$_[0].gif\" \"$_[0].pdf\"" );
+}
+sub rail{
+    system("rail \"$_[0]\"" );
+}
+# Einkommentieren, um den Index zu bauen (Rekursion nicht vergessen)
+#$makeindex='texindy -M lang/german/duden-utf8 -M base/ff-ranges -M base/latin-lettergroups -M ../Include/localidx';
+
+# add_input_ext('rao');
+# add_input_ext('rai');
+add_cus_dep('rai','rao',0,'rail');
+
+$clean_ext="bbl ext nav sh snm stderr tin vrb";
+
+$compiling_cmd="tput setaf 4; echo \"Start TeXing %B...\";  tput init"
