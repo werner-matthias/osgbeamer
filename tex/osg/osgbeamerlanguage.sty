@@ -3,16 +3,17 @@
 \ProvidesPackage{\packagename}[2016/08/09]
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Ermittle die Sprache, falls sie nicht durch Option gegeben ist.
-%%% Laut Konvention sind die Jobnamen nach dem Schema <typ>_<lang> gebildet,
-%%% z.B. slides_de
-\RequirePackage{osgifjob}
-\ifcsundef{selectedbeamerlanguage}{
-  \ifstrinjob{_en}{%
-    \providecommand\selectedbeamerlanguage{english}%
-  }{%
-    \providecommand\selectedbeamerlanguage{deutsch}%
-  }%
-}{}
+%%% Laut Konvention sind die Jobnamen nach dem Schema
+%%% <lectureprefix>-<number>-<doctype>-<language>[-<topic>] gebildet,
+%%% z.B. slides-de
+% \RequirePackage{osgifjob}
+% \ifcsundef{selectedbeamerlanguage}{
+%   \ifstrinjob{_en}{%
+%     \providecommand\selectedbeamerlanguage{english}%
+%   }{%
+%     \providecommand\selectedbeamerlanguage{deutsch}%
+%   }%
+% }{}
 \RequirePackage{ifluatex}
 \ifluatex
 \RequirePackage[babelshorthands]{polyglossia}
@@ -29,7 +30,7 @@
 \RequirePackage[ngerman,english]{babel}
 \RequirePackage[utf8]{inputenc}
 \babeltags{german=ngerman,english=english}
-\ifcsstring{selectedbeamerlanguage}{deutsch}{%
+\ifcsstring{selectedbeamerlanguage}{de}{%
   \AtBeginDocument{
     \selectlanguage{ngerman}
     }
@@ -74,7 +75,7 @@
   }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Sprachversionen  
-\ifcsstring{selectedbeamerlanguage}{deutsch}
+\ifcsstring{selectedbeamerlanguage}{de}
 {%%% Deutsch
   \let\ordinal=\ordinalde
   \newcommand{\len}[1]{}
