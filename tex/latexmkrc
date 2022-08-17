@@ -6,7 +6,6 @@
 # quite unelegant.
 # However, it seems to work.
 #################################################
-
 use strict;
 use 5.30.3;
 use warnings;
@@ -16,23 +15,38 @@ no warnings 'experimental::signatures','experimental::smartmatch';
 use Cwd qw(cwd getcwd);
 use File::Basename;
 use List::MoreUtils qw(firstidx);
-our (@default_files, $pdf_mode, $pdflatex, $biber, $jobname, $pre_tex_code, $clean_ext, $compiling_cmd);
-sub is_olmtree;
+our (@default_files, $pdf_mode, $pdflatex, $biber, $jobname, $pre_tex_code, $clean_ext, 
+$compiling_cmd, $silence, $recorder, $pre_tex_code, $pdflatex);
+sub is_ollmtree;
 sub doc_dirs;
-sub current_number;
+sub lect_descr;
 
 #####################################
 # Defaults                          #
 #####################################
 our $doctype="slides";
 our $lang="de";
-our $lectureprefix="foo";
+our $lectureprefix="lecture";
 our @languages=('de');
+our $suppress_topic = 0;
+our $class_file_path = '';
+
+@default_files=("main.tex");
+$pdf_mode=1;
+$pdflatex = 'pdflatex %O %P';
+$pre_tex_code = '\gdef\ollm{}';
+$silence = 1;
+$recorder=1;
+
+
+
+#$pdflatex = "pdflatex --shell-escape %O %S";
+#$pdflatex = 'internal mylatex -shell-escape -file-line-error -synctex=1 %O %S'; 
 
 #package olm;
 
-sub is_olmtree {
-    # is_olmtree()
+sub is_ollmtree {
+    # is_ollmtree()
     #
     # Returns true (1) if the current directory has the form
     # of a lecture-topic directury, else false (0)
@@ -47,7 +61,7 @@ sub doc_dirs ($type) {
     #
     # Returns all topic directories of the given type, that
     # are neighbors of the currenct one, in order.
-    if (!is_olmtree()) {
+    if (!is_ollmtree()) {
 	my @empty = ();
 	return @empty;
     }
@@ -64,24 +78,27 @@ sub doc_dirs ($type) {
     sort @dirs;
 }
 
-sub current_number ($type) {
-    # current_number(type)
+sub lect_descr($type) {
+    # lect_descr(type)
     #
     # type: string (slides|script|article)
     #
-    # Returns the sequence number (index) of the current
-    # topic directory. The first index is 0.
-    if (!is_olmtree()) {
+    # Returns for current topic directory the 
+    # sequence number (index) and the topic. The first index is 0.
+    if (!is_ollmtree()) {
 	my $empty = undef;
 	return $empty;
     } 
     my $topic_dir = basename(getcwd());
     my @all_dirs = doc_dirs($type);
-    my $index = firstidx { /$topic_dir/ } @all_dirs; 
-    return $index;
+    my $index = firstidx { /$topic_dir/ } @all_dirs;
+    my ( $topic ) = $topic_dir=~ /[0-9][0-9][0-9][as]?\-(.*)\s*$/;
+    return ( $index,  $topic);
 }
 
-sub process_options (@options) {
+sub process_options(@options) {
+    my $number;
+    my $topic;
     foreach (@options) {
 	given($_){
 	    when($_ eq 'slides') { $doctype = 'slides'; }
@@ -91,65 +108,59 @@ sub process_options (@options) {
 	    when($_ eq 'standalone') { $doctype = 'standalone'; }
 	    when($_ eq 'lang=de') { $lang = 'de'; }
 	    when($_ eq 'lang=en') { $lang = 'en'; }
+	    when($_ eq 'verbose') { $silence = 0; }	
+	    when($_ eq 'debug') { $silence = 0; }	
 	}
     }
-    if ((!is_olmtree()) and ($doctype ne 'standalone')) {
+    if ((!is_ollmtree()) and ($doctype ne 'standalone')) {
 	die' No proper directory structure. Try \'standalone\'';
     }
     if (($doctype ne 'standalone') && ( -e '../config.pl')) {
-	print "\nLoad config\n";
-	#eval `cat ../config.pl`;
-	do '../config.pl'
-
+	print "\nLoad config now\n";
+	my $return;
+	my $file='../config.pl';
+	unless ($return = do $file) {
+	    warn "can't parse $file: $@" if $@;
+	    warn "can't do $file: $!"    unless defined $return;
+	    warn "can't run $file"       unless $return;
+	}
+	if (substr($class_file_path,0,1) eq '/') { # absoluter Pfad
+	    ensure_path( 'TEXINPUTS', $class_file_path.'//');
+	} else {
+	    ensure_path( 'TEXINPUTS', '../'.$class_file_path.'//');
+	}
+	ensure_path( 'TEXINPUTS', '../Include//');
+    }
+    if ($doctype ne 'standalone') {
+	$pre_tex_code='\gdef\ollm{}';
+	($number,$topic) = lect_descr($doctype);
+	$number=sprintf("%02d", $number);
+	# <lectureprefix>-<number>-<doctype>-<language>-<topic>
+	if ($suppress_topic) {
+	    $jobname = $lectureprefix.'-'.$number.'-'.$doctype.'-'.$lang
+	} else {
+	    $jobname = $lectureprefix.'-'.$number.'-'.$doctype.'-'.$lang.'-'.$topic;
+	}
     }
 }
-#####################################
-# Doctype and Language              #
-#####################################
-@default_files=("main.tex");
 
-# Script options that can be used by OLM.
+
+# Script options that can be used by OLLM.
 # All other will be passed to latexmk.
 my $commandregex = qr/slides|script|handout|standalone|debug|verbose|lang/;
 $,= ' ';
 
-print "\n ARGS=";
-print @ARGV;
-
-my @olmOptions = grep (/$commandregex/, @ARGV);
+my @ollmOptions = grep (/$commandregex/, @ARGV);
 @ARGV =  grep (!/$commandregex/, @ARGV);
 
-process_options(@olmOptions);
-
-print doc_dirs('slides');
-
-print "\n\n OLM = ";
-print is_olmtree();
-print "\n\n";
-print "\n basename=";
-print basename(getcwd());
-print "\n\n";
-print "\n current_number=";
-print current_number('slides');    
-print "\n\n";
-print "\n ARGV=";
-print @ARGV;
-print "\n Opts=";
-print @olmOptions;   
-print "\n";
-print "lectureprefix=\"$lectureprefix\"\n";
-
-exit 0;
-ensure_path( 'TEXINPUTS', '../../../Common/TeX//');
-ensure_path( 'TEXINPUTS', '../Include//');
+process_options(@ollmOptions);
 
 
 
 
 
 
-$pdf_mode=1;
-$pdflatex = 'internal mylatex -shell-escape -file-line-error -synctex=1 %O %S'; 
+
 
 sub mylatex {
 my @args = @_;
@@ -160,25 +171,7 @@ return system 'pdflatex', @args;
 
 
 #$pdflatex="pdflatex -shell-escape -file-line-error -synctex=1 %O %P";
-sub slides {
-    $doctype="slides";
-    $jobname=$doctype."_".$lang;
-}
 
-sub script {
-    $doctype="script";
-    $jobname=$doctype."_".$lang;
-}
-
-sub de {
-    $lang="de";
-    $jobname=$doctype."_".$lang;
-}
-
-sub en {
-    $lang="en";
-    $jobname=$doctype."_".$lang;
-}
 
 #####################################
 # Dependencies                      #
