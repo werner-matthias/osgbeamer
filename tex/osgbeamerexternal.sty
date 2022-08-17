@@ -1,0 +1,188 @@
+% 2016-08-09, M. Werner: first version
+% 2018-06-11, M. Werner: Fix: Generierung eines fehlerhaften Labels wenn \lecture-Kommando eingerückt ist.
+% 2018-08-10, M. Werner: Keine Generierung von .ext-Dateien bei tikz-Externalisierung
+
+\NeedsTeXFormat{LaTeX2e}
+\def\packagename{osgbeamerexternal}
+\ProvidesPackage{\packagename}[2016/08/09]
+\DeclareOption{forceref}{
+  \PackageWarning{\packagename}{Include all directories (even unprecessed)}
+  \providecommand{\osgexternaldocument}{\osgexternaldocumentforce}
+}
+\ProcessOptions
+\RequirePackage{ifplatform}
+%\ifshellescape\relax 
+%\else
+%  \PackageError{\packagename}{No right to escape}{Use this package with the option '-shell-escape'.}
+%\fi
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Erweiterte Referenzen
+%
+% Statt \ref soll \xref[chp-label]{label} verwendet werden. Wenn chp-label
+% angegeben wird, bezieht sich die Referenz auf das entsprechende Kapitel.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\RequirePackage{zref-xr}
+\RequirePackage{zref-lastpage}
+\RequirePackage{zref-counter}
+\RequirePackage{zref-hyperref}
+\newcommand{\addtolistcs}[2]{%
+  \ifinlistcs{#2}{#1}{}{%
+    \listcsgadd{#1}{#2}
+  }
+}
+\mode<presentation>{
+  % beamer@treat aus beamerbasemodes.sty wird überschrieben, um Abschnittslabel
+  % für Slides/Handouts zu ermöglichen
+  \def\beamer@treat{%
+    \ifx\beamer@nexttoken\frame\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\lecture\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\note\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\appendix\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\lde\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\len\let\next=\beamer@stopoutsidemode\fi%
+    %\ifx\beamer@nexttoken\langall\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\againframe\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\section\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\subsection\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\subsubsection\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\part\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\article\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\mode\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\common\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\label\let\next=\beamer@stopoutsidemode\fi% neu!
+    \ifx\beamer@nexttoken\presentation\let\next=\beamer@stopoutsidemode\fi%
+    \ifx\beamer@nexttoken\markcategory\let\next=\beamer@stopoutsidemode\fi% neu!
+    \ifx\beamer@nexttoken\begin\let\next=\beamer@checkbeginframe\fi%
+    \ifx\beamer@nexttoken\end\let\next=\beamer@checkenddoc\fi%
+    \next}
+  }
+
+\AtBeginDocument{%
+  \let\label=\zref@label
+}
+\zref@newprop{beamer@frame}{\theframenumber}
+\zref@addprop{main}{beamer@frame}
+
+\newcommand{\xxref}[3][]{%
+  % #1: Kapitellabel
+  % #2: Eintragslabel
+  \ifstrempty{#1}{%
+    \zref@extract{#2}{#3}%
+  }{%
+    \ifcsstring{beamer@currentlecturelabel}{#1}{%
+      \zref@extract{#2}{#3}%
+    }{%
+      % Protokolliere, welches Kapitel nachgefragt wurde
+      \write\@mainaux{\string\addtolistcs{osg@externrefs}{#1}}%
+      \zref@extract{#1:#2}{#3}%
+    }%
+  }% 
+}
+\newcommand{\xref}[2][]{%
+  \xxref[#1]{#2}{default}%
+}
+% Referenziere Kapitelnummer
+\newcounter{cnvt}
+\newcommand{\xrefchap}[1]{%
+  \ifstrempty{#1}{(\xref[\beamer@currentlecturelabel]{\beamer@currentlecturelabel})}{\xref[#1]{#1}}%
+  %\setcounter{cnvt}{\numexpr\ifstrempty{#1}{(\xref[\beamer@currentlecturelabel]{\beamer@currentlecturelabel})}{\xref[#1]{#1}}}
+  %IX
+}
+
+% Referenziert eine Folie im Präsentations-Modus, und eine Seite in Artikel-Modus
+\newcommand{\xrefsmart}[2][]{%
+  \iflanguage{english}{%
+    \def\pagename{page}%
+    \def\slidename{slide}%
+  }{%
+    \def\pagename{Seite}%
+    \def\slidename{Folie}%
+  }%
+  \alt<article>{%
+    \pagename~\xxref[#1]{#2}{page}%
+  }{%
+    \slidename~\xref[#1]{#2}%
+  }%
+}
+\providecommand{\osgexternaldocument}{\osgexternaldocumentcond}
+
+% #1: Kapitellabel
+% #2: Dateiname (Job + Sprache)
+\newcommand{\osgexternaldocumentforce}[2]{%
+  \typeout{*** forced to include #2.aux}
+  \zexternaldocument[#1:]{#2}
+}
+
+\newcommand{\osgexternaldocumentcond}[2]{%
+  \ifinlistcs{#1}{osg@externrefs}{% Wurde das externe Kapitel referenziert?
+    \typeout{*** include external #2.aux}
+    \zexternaldocument[#1:]{#2}
+  }{}
+}
+\let\osgexternaldocument=\osgexternaldocumentcond
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Kapitelstruktur
+%
+% Es wird angenommen, dass jedes main.tex-Dokument ein eigenes Kapitel bildet
+% und sich in einem eigenen Directory befindet, das einen Namen der Form
+% [0-9][0-9][0-9]-xxxxxx hat, also z.B. "010-Intro".
+%
+% Der folgende Code ermöglicht, dass anhand der Directory-Nummer die
+% Kapitelnummer erkannt wird. Darüber hinaus wird im article-Modus auch die
+% letzte Seitennummer bestimmt, so dass das aktuelle Kapitel mit der nächsten
+% Seitennummer startet.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\ifcsname tikzexternalrealjob\endcsname\relax\else % Überspringen bei Externalisierung in tikz
+\RequirePackage{bashful}
+\bash[stdoutFile=\jobname.ext]
+   JOB=`basename -s .sh $0`
+   CURRENTDIR=`basename ${PWD}`
+   TOPIC=`echo ${CURRENTDIR} | cut -f2 -d-`
+   echo -n "\\newcommand*\\firstchapter{"
+   ( cd .. ; ls -d -1 [0-9][0-9][0-9]-* | grep --null -n ${CURRENTDIR} | cut -f1 -d':' | tr -d '\n' )
+   echo "}"
+   echo "\\newcommand{\\currenttopic}{$TOPIC}"
+   LASTDIR=`ls -d -1 ../[0-9][0-9][0-9]-* | grep -B1 --null -n ${CURRENTDIR} | grep -v : | cut -f2,3 -d- `
+   echo "\\newcommand{\\lastlectdir}{$LASTDIR}"
+   for d in `ls -d ../[0-9][0-9][0-9]-*`; do
+      if [ "$d" != "../${CURRENTDIR}" ] && [ -a $d/main.tex ]
+      then
+         #LABEL=`grep lecture\{ $d/main.tex | grep -v ^% | sed -E "s/[[:space:]]*\\\\\\\\lecture([^{]*){((([^}]*)|({[^}]*})))*}{([^}]*)}/\6/"`
+         LABEL=`grep lecture[\[\{] $d/main.tex | grep -v ^% | sed -E "s/[[:space:]]*\\\\\\\\lecture([^{]*){((([^}]*)|({[^}]*})))*}{([^}]*)}/\6/"`
+         if [ "${LASTDIR}" == "${d}" ]
+         then
+            echo "\\newcommand{\\lastlectlabel}{$LABEL}"
+            echo "\\addtolistcs{osg@externrefs}{$LABEL}"
+         fi
+         if [ ${LABEL}x != x ]
+         then
+           echo \\osgexternaldocument\{${LABEL}\}\{$d/$JOB\}
+         fi
+      fi  
+  done
+  echo "% end of file"
+\END
+\AtBeginDocument{
+  % Lese Ergebnisse ein
+  \input{\jobname.ext}
+  % Definiere Fallbacks
+  \providecommand{\lastlectlabel}{}
+  \providecommand{\lastlectdir}{}
+  \mode<article>{
+    \ifdefstring{\lastlectdir}{}{%
+      \PackageInfo{\packagename}{first directory, I do not touch the page number}
+    }{
+      \zifrefundefined{\lastlectlabel:LastPage}{
+        \PackageWarning{osgbeamerexternal}{Lastpage is undefined, run 'make  script' in \lastlectdir}
+      }{
+        \PackageInfo{\packagename}{previous directory found, I'll change the page number}
+        \setcounter{page}{\zref@extract{\lastlectlabel:LastPage}{page}}
+        \stepcounter{page}
+      }
+    }
+  }
+  \ifcsstring{firstchapter}{}{}{
+    \addtocounter{chapter}{\firstchapter}
+  }
+}
+\fi % Überspringen bei Externalisierung in tikz
