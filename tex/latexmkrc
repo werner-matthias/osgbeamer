@@ -15,8 +15,9 @@ no warnings 'experimental::signatures','experimental::smartmatch';
 use Cwd qw(cwd getcwd);
 use File::Basename;
 use List::MoreUtils qw(firstidx);
-our (@default_files, $pdf_mode, $pdflatex, $biber, $jobname, $pre_tex_code, $clean_ext, 
-$compiling_cmd, $silence, $recorder, $pre_tex_code, $pdflatex);
+our (@default_files, $pdf_mode, $pdflatex, $lualatex,
+$biber, $jobname, $pre_tex_code, $clean_ext, 
+$compiling_cmd, $silent, $recorder,  $aux);
 sub is_ollmtree;
 sub doc_dirs;
 sub lect_descr;
@@ -30,20 +31,15 @@ our $lectureprefix="lecture";
 our @languages=('de');
 our $suppress_topic = 0;
 our $class_file_path = '';
+our $shared_data_path='../Ref';
 
 @default_files=("main.tex");
-$pdf_mode=1;
+$pdf_mode=4;
 $pdflatex = 'pdflatex %O %P';
-$pre_tex_code = '\gdef\ollm{}';
-$silence = 1;
+$lualatex = 'lualatex %O %P';
+$pre_tex_code = '\gdef\ollm{\def\osg@sharedatapath{'.$shared_data_path.'}';
+$silent = 1;
 $recorder=1;
-
-
-
-#$pdflatex = "pdflatex --shell-escape %O %S";
-#$pdflatex = 'internal mylatex -shell-escape -file-line-error -synctex=1 %O %S'; 
-
-#package olm;
 
 sub is_ollmtree {
     # is_ollmtree()
@@ -108,8 +104,8 @@ sub process_options(@options) {
 	    when($_ eq 'standalone') { $doctype = 'standalone'; }
 	    when($_ eq 'lang=de') { $lang = 'de'; }
 	    when($_ eq 'lang=en') { $lang = 'en'; }
-	    when($_ eq 'verbose') { $silence = 0; }	
-	    when($_ eq 'debug') { $silence = 0; }	
+	    when($_ eq 'verbose') { $silent = 0; }	
+	    when($_ eq 'debug') { $silent = 0; }	
 	}
     }
     if ((!is_ollmtree()) and ($doctype ne 'standalone')) {
